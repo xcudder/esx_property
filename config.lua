@@ -7,7 +7,7 @@ Config.OwnedBlips = true -- Add blips for Owned Properties
 
 --------------------- General Settings ---------------------------------
 Config.Locale = GetConvar('esx:locale', 'en')
-Config.Shells = false -- Enable/Disable Shell Interiors Default: false
+Config.Shells = true -- Enable/Disable Shell Interiors Default: false
 Config.SaveInterval = 5 -- Interval in Minutes to Save Properties
 Config.CanAlwaysExit = true -- Disabling this allows players to be locked in
 Config.OwnerCanAlwaysEnter = true -- Disabling this means the owner can't enter the property unless door is unlocked
@@ -16,6 +16,12 @@ Config.CanCustomiseInventoryAndWardrobePositions = true -- Allow users to custom
 Config.WipeCustomNameOnSell = true -- Wipe custom name on sell Default: true
 Config.WipeFurnitureOnSell = true -- Wipe custom name on sell Default: true
 
+--------------------- Rental Settings ---------------------------------
+Config.RentEnabled          = true              -- Enable rent functionality
+Config.RentDivider          = 200               -- Percentage of the price to determine periodic rent
+Config.RentInterval         = 60 * 60 * 24 * 7  -- IRL seconds between each billing
+Config.RunBillingInterval   = 5                 -- Interval in minutes to run rent billing function
+Config.AutomatedBilling     = true              -- Will run billing along with the periodic property saves
 
 --------------------- Zone Suggested Prices  ---------------------------------
 Config.ZonePriceOptions = {
@@ -317,6 +323,36 @@ Config.Interiors = {
       type = "ipl",
       pos = vector3(1121.1871, -3152.6177, -37.0628)
     },
+    {
+      label = "2 Car Garage",
+      value = "2 Car Garage",
+      positions = {
+        Wardrobe = vector3(177.1384, -1002.8571, -99.0146),
+        Storage = vector3(177.3362, -999.7977, -99.0146), -- Only Works with Ox Inventory
+      },
+      type = "ipl",
+      pos = vector3(178.8923, -1000.1142, -99.0146)
+    },
+    {
+      label = "Motel",
+      value = "Motel",
+      positions = {
+        Wardrobe = vector3(151.7802, -1001.4857, -99.0146),
+        Storage = vector3(151.3054, -1003.3054, -99.0146), -- Only Works with Ox Inventory
+      },
+      type = "ipl",
+      pos = vector3(151.5692, -1007.9736, 175.7480)
+    },
+    {
+      label = "Madrazo's House",
+      value = "Madrazo's House",
+      positions = {
+        Wardrobe = vector3(1397.4593, 1164.3692, 114.3209),
+        Storage = vector3(1394.2945, 1150.0747, 114.3209), -- Only Works with Ox Inventory
+      },
+      type = "ipl",
+      pos = vector3(1396.9450, 1141.9121, 114.3209)
+    },
   },
   Shells = {
     {
@@ -588,30 +624,35 @@ Config.FurnitureCatagories =
   Sofas = {{price = 11500, title = 'Couch with pillows', name = 'prop_couch_01'},
            {price = 6500, title = 'Padded bench', name = 'prop_wait_bench_01'},
            {price = 4400, title = 'White leather sofa', name = 'xm_lab_sofa_01'}},
-  Kitchen = {{price = 800, title = 'Kitchen scale', name = 'bkr_prop_coke_scale_01'},
-             {price = 1000, title = 'Home coffee maker', name = 'prop_coffee_mac_02'},
-             {price = 5200, title = 'Automatic juice mixer', name = 'prop_juice_dispenser'},
+  Kitchen = {{price = 80, title = 'Kitchen scale', name = 'bkr_prop_coke_scale_01'},
+             {price = 100, title = 'Home coffee maker', name = 'prop_coffee_mac_02'},
+             {price = 520, title = 'Automatic juice mixer', name = 'prop_juice_dispenser'},
+             {price = 520, title = 'Microwave #1', name = 'prop_micro_01  '},
+             {price = 520, title = 'Microwave #2', name = 'prop_micro_02'},
+             {price = 520, title = 'Microwave #3', name = 'prop_micro_04'},
+             {price = 520, title = 'Microwave #4', name = 'prop_microwave_1'},
+             {price = 1000, title = 'Stove', name = 'prop_cooker_03'},
              {price = 200, title = 'White wall phone', name = 'prop_office_phone_tnt'},
-             {price = 2300, title = 'Fruit Blender', name = 'p_kitch_juicer_s'},
-             {price = 1500, title = 'Kettle', name = 'prop_kettle_01'},
-             {price = 2600, title = 'Crushing machine', name = 'prop_slush_dispenser'},
-             {price = 700, title = 'Coffee pot', name = 'xm_prop_x17_coffee_jug'},
-             {price = 3700, title = 'Mini bar fridge', name = 'prop_bar_fridge_03'},
-             {price = 800, title = 'Plastic red cup', name = 'apa_prop_cs_plastic_cup_01'},
-             {price = 1000, title = 'Trash', name = 'prop_bin_10a'},
-             {price = 400, title = 'Universal Cleaner', name = 'prop_blox_spray'},
-             {price = 200, title = 'Green bucket', name = 'prop_buck_spade_05'},
-             {price = 400, title = 'Blue bucket', name = 'prop_buck_spade_06'},
-             {price = 200, title = 'Red bucket', name = 'prop_buck_spade_07'},
-             {price = 700, title = 'Cups', name = 'prop_food_cups2'},
-             {price = 400, title = 'White Cup', name = 'prop_mug_02'},
-             {price = 800, title = 'Bowl with donut lid', name = 'v_res_cakedome'},
-             {price = 1000, title = 'Loose tea container', name = 'v_res_fa_pottea'},
-             {price = 300, title = 'Deep Plate', name = 'v_res_mbowl'},
-             {price = 500, title = 'Paper napkins', name = 'v_ret_ta_paproll'},
-             {price = 400, title = 'Glasses', name = 'p_w_grass_gls_s'},
-             {price = 300, title = 'Glasses', name = 'prop_cocktail'},
-             {price = 600, title = 'Knife', name = 'prop_cs_bowie_knife'}},
+             {price = 230, title = 'Fruit Blender', name = 'p_kitch_juicer_s'},
+             {price = 150, title = 'Kettle', name = 'prop_kettle_01'},
+             {price = 260, title = 'Crushing machine', name = 'prop_slush_dispenser'},
+             {price = 70, title = 'Coffee pot', name = 'xm_prop_x17_coffee_jug'},
+             {price = 370, title = 'Mini bar fridge', name = 'prop_bar_fridge_03'},
+             {price = 80, title = 'Plastic red cup', name = 'apa_prop_cs_plastic_cup_01'},
+             {price = 100, title = 'Trash', name = 'prop_bin_10a'},
+             {price = 40, title = 'Universal Cleaner', name = 'prop_blox_spray'},
+             {price = 20, title = 'Green bucket', name = 'prop_buck_spade_05'},
+             {price = 40, title = 'Blue bucket', name = 'prop_buck_spade_06'},
+             {price = 20, title = 'Red bucket', name = 'prop_buck_spade_07'},
+             {price = 70, title = 'Cups', name = 'prop_food_cups2'},
+             {price = 40, title = 'White Cup', name = 'prop_mug_02'},
+             {price = 80, title = 'Bowl with donut lid', name = 'v_res_cakedome'},
+             {price = 100, title = 'Loose tea container', name = 'v_res_fa_pottea'},
+             {price = 30, title = 'Deep Plate', name = 'v_res_mbowl'},
+             {price = 50, title = 'Paper napkins', name = 'v_ret_ta_paproll'},
+             {price = 40, title = 'Glasses', name = 'p_w_grass_gls_s'},
+             {price = 30, title = 'Glasses', name = 'prop_cocktail'},
+             {price = 60, title = 'Knife', name = 'prop_cs_bowie_knife'}},
   Bedroom = {{price = 3300, title = 'Single bed', name = 'v_res_msonbed'},
              {price = 100, title = 'Double bed', name = 'p_lestersbed_s'},
              {price = 600, title = 'Double bed', name = 'p_v_res_tt_bed_s'},

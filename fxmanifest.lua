@@ -32,6 +32,7 @@ ui_page "client/html/copy.html"
 server_scripts {
 	'@oxmysql/lib/MySQL.lua',
 	'config.lua',
+    'server/rent.lua',
 	'server/*.lua'
 }
 

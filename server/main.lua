@@ -96,7 +96,8 @@ end
 
 CreateThread(function()
       Wait(3000)
-	PropertiesRefresh()
+
+        PropertiesRefresh()
 
 	MySQL.query("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `last_property` LONGTEXT NULL", function(result)
 		if result?.affectedRows > 0 then
@@ -201,6 +202,38 @@ ESX.RegisterServerCallback("esx_property:buyProperty", function(source, cb, Prop
   cb(xPlayer.getAccount("bank").money >= Price)
 end)
 
+-- Rent Property
+ESX.RegisterServerCallback("esx_property:rentProperty", function(source, cb, PropertyId)
+  local xPlayer = ESX.GetPlayerFromId(source)
+  local Price = ESX.Math.Round(Properties[PropertyId].Price / Config.RentDivider)
+
+  if xPlayer.getAccount("bank").money >= Price then
+    Properties[PropertyId].Rented           = true
+    Properties[PropertyId].RentedFor        = xPlayer.identifier
+    Properties[PropertyId].RentedForName    = xPlayer.getName()
+
+    local now = MySQL.query.await("SELECT CURRENT_TIMESTAMP AS time")
+    BillRenter(Properties[PropertyId], now[1].time)
+
+    if not Properties[PropertyId].Keys then
+      Properties[PropertyId].Keys = {}
+    end
+
+    Properties[PropertyId].Keys[xPlayer.identifier] = {name = xPlayer.getName(), identifier = xPlayer.identifier}
+
+    Log("Property Rented", 65280, {{name = "**Property Name**", value = Properties[PropertyId].Name, inline = true},
+                                   {name = "**Price**", value = ESX.Math.GroupDigits(Price), inline = true},
+                                   {name = "**Player**", value = xPlayer.getName(), inline = true}}, 1)
+    TriggerClientEvent("esx_property:syncProperties", -1, Properties)
+    if Config.OxInventory then
+      exports.ox_inventory:RegisterStash("property-" .. PropertyId, Properties[PropertyId].Name, 15, 100000, xPlayer.identifier)
+    end
+    cb(true)
+  else
+    cb(false)
+  end
+end)
+
 ESX.RegisterServerCallback("esx_property:attemptSellToPlayer", function(source, cb, PropertyId, PlayerId)
   local xPlayer = ESX.GetPlayerFromId(source)
   local xTarget = ESX.GetPlayerFromId(PlayerId)
@@ -302,6 +335,19 @@ ESX.RegisterServerCallback("esx_property:sellProperty", function(source, cb, Pro
 end)
 
 -- Admin Menu Options
+ESX.RegisterServerCallback("esx_property:toggleRental", function(source, cb, PropertyId)
+  local xPlayer = ESX.GetPlayerFromId(source)
+  local Owner = Properties[PropertyId].Owner
+  if xPlayer.identifier == Owner or IsPlayerAdmin(source, "ToggleLock") then
+    Properties[PropertyId].ForRental = not Properties[PropertyId].ForRental
+    TriggerClientEvent("esx_property:syncProperties", -1, Properties)
+  end
+  Log("Rental Toggled", 3640511, {{name = "**Property Name**", value = Properties[PropertyId].Name, inline = true},
+                                {name = "**Owner**", value = Properties[PropertyId].OwnerName, inline = true},
+                                {name = "**Executing User**", value = xPlayer.getName(), inline = true},
+                                {name = "**Status**", value = Properties[PropertyId].Locked and "Locked" or "Unlocked", inline = true}}, 3)
+  cb(xPlayer.identifier == Owner or IsPlayerAdmin(source, "ToggleLock"))
+end)
 
 ESX.RegisterServerCallback("esx_property:toggleLock", function(source, cb, PropertyId)
   local xPlayer = ESX.GetPlayerFromId(source)
@@ -577,6 +623,8 @@ ESX.RegisterServerCallback("esx_property:editFurniture", function(source, cb, Pr
   cb(xPlayer.identifier == Owner or IsPlayerAdmin(source) or (Properties[PropertyId].Keys and Properties[PropertyId].Keys[xPlayer.identifier]))
 end)
 
+ESX.RegisterServerCallback("esx_property:evictRenter", evictRenter)
+
 ESX.RegisterServerCallback("esx_property:evictOwner", function(source, cb, PropertyId, Interior)
   local xPlayer = ESX.GetPlayerFromId(source)
   if IsPlayerAdmin(source, "EvictOwner") then
@@ -590,6 +638,13 @@ ESX.RegisterServerCallback("esx_property:evictOwner", function(source, cb, Prope
     Properties[PropertyId].OwnerName = ""
     Properties[PropertyId].Locked = false
     Properties[PropertyId].Keys = {}
+
+    if Config.RentEnabled then
+      Properties[PropertyId].RentedFor = ""
+      Properties[PropertyId].RentedForName = ""
+      Properties[PropertyId].Rented = false
+    end
+
     if Config.WipeFurnitureOnSell then
       Properties[PropertyId].furniture = {}
     end
@@ -1128,6 +1183,17 @@ CreateThread(function()
     PropertySave(TranslateCap("interval_saving"))
   end
 end)
+
+-- Run billing every x seconds 
+
+if Config.RentEnabled and Config.AutomatedBilling then
+  CreateThread(function()
+    while true do
+      RunBilling()
+      Wait(60000 * Config.RunBillingInterval)
+    end
+  end)
+end
 
 ESX.RegisterCommand(_("save_name"), Config.AllowedGroups, function(xPlayer)
   PropertySave(TranslateCap("manual_save", GetPlayerName(xPlayer.source)))

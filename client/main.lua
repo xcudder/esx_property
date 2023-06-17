@@ -141,7 +141,7 @@ end)
 
 function OpenInteractionMenu(PropertyId, Interaction)
   local Property = Properties[PropertyId]
-  if Property.Owned then
+  if Property.Owned or (Property.Rented and Config.RentEnabled) then
     if Interaction == "Wardrobe" then
       Config.WardrobeInteraction(PropertyId, Interaction)
     elseif Interaction == "Storage" then
@@ -247,12 +247,13 @@ local SettingValue = ""
 function PropertyMenuElements(PropertyId)
   local Property = Properties[PropertyId]
   local elements = {{unselectable = true, title = Property.setName ~= "" and Property.setName or Property.Name, icon = "fas fa-home"}}
-  if Property.Owned then
+  if Property.Owned or (Property.Rented and Config.RentEnabled) then
     if Property.Locked then
       table.insert(elements, {title = TranslateCap("door_locked"), icon = "fas fa-lock", value = 'property_unlock'})
     else
       table.insert(elements, {title = TranslateCap("door_unlocked"), icon = "fas fa-unlock", value = 'property_lock'})
     end
+
     if ESX.PlayerData.identifier == Property.Owner then
       table.insert(elements,
         {title = TranslateCap("name_manage"), description = TranslateCap("name_manage_desc"), icon = "fa-solid fa-signature", value = 'property_name'})
@@ -263,6 +264,13 @@ function PropertyMenuElements(PropertyId)
         table.insert(elements,
           {title = TranslateCap("sell_title"), description = TranslateCap("sell_desc", ESX.Math.GroupDigits(ESX.Round(Property.Price * 0.6))),
            icon = "fas fa-dollar-sign", value = 'property_sell'})
+        if Config.RentEnabled then
+          if Property.ForRental then
+            table.insert(elements, {title = TranslateCap("disable_rental"), icon = "fas fa-lock", value = 'disable_rental'})
+          else
+            table.insert(elements, {title = TranslateCap("enable_rental"), icon = "fas fa-unlock", value = 'put_up_for_rental'})
+          end
+        end
       end
       if Config.Raiding.Enabled and Property.Locked and ESX.PlayerData.job and ESX.GetPlayerData().job.name == "police" then
         table.insert(elements, {title = TranslateCap("raid_title"), description = TranslateCap("raid_desc"), icon = "fas fa-bomb", value = 'property_raid'})
@@ -307,6 +315,16 @@ function PropertyMenuElements(PropertyId)
     end
   end
 
+  if Config.RentEnabled and not Property.Rented then
+    if Property.ForRental or not Property.Owned then
+      if ESX.PlayerData.identifier ~= Property.RentedFor and ESX.PlayerData.identifier ~= Property.Owner then
+        table.insert(elements,
+          {title = TranslateCap("rent_title"), description = TranslateCap("rent_desc", ESX.Math.GroupDigits(ESX.Round(Property.Price / Config.RentDivider))), icon = "fas fa-shopping-cart",
+           value = 'property_rent'})
+      end
+    end
+  end
+
   if InProperty and (not Property.Locked or Config.CanAlwaysExit) then
     table.insert(elements, {title = TranslateCap("exit_title"), icon = "fas fa-sign-out-alt", value = 'property_exit'})
   end
@@ -344,6 +362,29 @@ function OpenPropertyMenu(PropertyId)
         end
       end, PropertyId)
     end
+
+    if element.value == "disable_rental" then
+      ESX.TriggerServerCallback("esx_property:toggleRental", function(success)
+        if success then
+          local eles = PropertyMenuElements(PropertyId)
+          exports["esx_context"]:Refresh(eles)
+        else
+          ESX.ShowNotification(TranslateCap("rental_error"), "error")
+        end
+      end, PropertyId)
+    end
+
+    if element.value == "put_up_for_rental" then
+      ESX.TriggerServerCallback("esx_property:toggleRental", function(success)
+        if success then
+          local eles = PropertyMenuElements(PropertyId)
+          exports["esx_context"]:Refresh(eles)
+        else
+          ESX.ShowNotification(TranslateCap("rental_error"), "error")
+        end
+      end, PropertyId)
+    end
+
     if element.value == "property_cctv" then
       CCTV(PropertyId)
     end
@@ -436,6 +477,16 @@ function OpenPropertyMenu(PropertyId)
           exports["esx_context"]:Refresh(eles)
         else
           ESX.ShowNotification(TranslateCap("cannot_afford"), "error")
+        end
+      end, PropertyId)
+    end
+    if element.value == "property_rent" then
+      ESX.TriggerServerCallback("esx_property:rentProperty", function(IsRented)
+        if IsRented then
+          local eles = PropertyMenuElements(PropertyId)
+          exports["esx_context"]:Refresh(eles)
+        else
+          ESX.ShowNotification(TranslateCap("cannot_afford_rent"), "error")
         end
       end, PropertyId)
     end
@@ -611,7 +662,7 @@ function AttemptHouseEntry(PropertyId)
           end
         end
 
-        if Property.Owned then
+        if Property.Owned or (Config.RentEnabled and Property.Rented) then
           for k, v in pairs(Properties[CurrentId].positions) do
             local v = vector3(v.x, v.y, v.z)
             local CanDo = true
@@ -667,7 +718,7 @@ function AttemptHouseEntry(PropertyId)
           end
         end
 
-        if Property.Owned then
+        if Property.Owned or (Config.RentEnabled and Property.Rented) then
           for k, v in pairs(Properties[CurrentId].positions) do
             v = vector3(v.x, v.y, v.z)
             local CanDo = true
@@ -1166,6 +1217,10 @@ RegisterNetEvent("esx_property:AdminMenu", function()
                 elements[#elements + 1] = {title = "Remove Owner", icon = "fas fa-user-times", description = "Evict The Owner Of The Property.",
                                            value = "removeowner"}
               end
+              if Properties[currentProperty].Rented then
+                elements[#elements + 1] = {title = "Remove Renter", icon = "fas fa-user-times", description = "Evict The One Renting The Property.",
+                                           value = "removerenter"}
+              end
               return elements
             end
             ESX.OpenContext("right", GetData(), function(menu, element)
@@ -1192,6 +1247,16 @@ RegisterNetEvent("esx_property:AdminMenu", function()
                       ESX.ShowNotification("You Cannot Evict This Owner!", "error")
                     end
                   end, currentProperty)
+                end
+                if element.value == "removerenter" then
+                  ESX.TriggerServerCallback("esx_property:evictRenter", function(Evicted)
+                    if Evicted then
+                      ESX.ShowNotification("Renter Evicted!", "success")
+                      exports["esx_context"]:Refresh(GetData())
+                    else
+                      ESX.ShowNotification("You Cannot Evict This Renter!", "error")
+                    end
+                  end, currentProperty, Properties)
                 end
                 if element.value == "garage" then
                   local status = Properties[currentProperty].garage.enabled and TranslateCap("enabled") or TranslateCap("disabled")
@@ -1496,6 +1561,9 @@ RegisterNetEvent("esx_property:AdminMenu", function()
                 end
                 if Properties[i].Owned then
                   description = description .. "\nOwner: " .. Properties[i].OwnerName
+                end
+                if Properties[i].Rented then
+                  description = description .. "\nOccupied By: " .. Properties[i].RentedForName
                 end
                 table.insert(elements, {title = Properties[i].Name, value = i, description = description, icon = "fas fa-home"})
               end
